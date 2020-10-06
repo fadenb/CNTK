@@ -57,30 +57,30 @@ namespace CNTK
     // Variation on EncodeFloat/EncodeDouble/DecodeFloat/DecodeDouble from
     // ::google::protobuf::internal::WireFormatLite.
     template <typename SRC, typename DST>
-    inline DST Encode(SRC value) 
+    inline DST Encode(SRC value)
     {
         union { SRC src; DST dst; };
         src = value;
         return dst;
     }
-    
-    class RenewableCodedStream 
+
+    class RenewableCodedStream
     {
     public:
-        RenewableCodedStream(io::ZeroCopyInputStream& input) 
+        RenewableCodedStream(io::ZeroCopyInputStream& input)
             : m_input(input)
         {
             Renew();
         }
 
         template <typename T>
-        inline bool Read(T* value) 
+        inline bool Read(T* value)
         {
             auto size = sizeof(T);
 
             if (m_codedInputPtr->CurrentPosition() > INT_MAX - size)
                 Renew();
-            
+
             if (size == sizeof(uint32)) {
                 uint32 tmp;
                 if (!m_codedInputPtr->ReadLittleEndian32(&tmp))
@@ -105,7 +105,7 @@ namespace CNTK
         {
             delete m_codedInputPtr.release();
             m_codedInputPtr = make_unique<io::CodedInputStream>(&m_input);
-            m_codedInputPtr->SetTotalBytesLimit(INT_MAX, INT_MAX);
+            m_codedInputPtr->SetTotalBytesLimit(INT_MAX);
         }
 
         io::ZeroCopyInputStream& m_input;
@@ -269,7 +269,7 @@ namespace CNTK
             auto size = src.Shape().TotalSize();
             const T* buffer = src.DataBuffer<T>();
             auto tSize = sizeof(T);
-            for (auto i = 0; i < size; i++) 
+            for (auto i = 0; i < size; i++)
             {
                 auto value = buffer[i];
                 if (tSize <= sizeof(uint32))
@@ -311,7 +311,7 @@ namespace CNTK
 
             if (!success)
                 return false;
-            
+
             auto size = dst.Shape().TotalSize();
             if (totalSize != size)
                 return false;
@@ -352,7 +352,7 @@ namespace CNTK
     };
 
 
-    Serializer::Serializer(const Dictionary& dict) 
+    Serializer::Serializer(const Dictionary& dict)
     {
         m_proto = CreateProto(dict, &m_arena);
     }
@@ -361,10 +361,10 @@ namespace CNTK
     {
         m_proto = CreateProto(value, &m_arena);
     }
-  
+
     void Serializer::CopyNDArrayViewDataToProtos()
     {
-        for (auto& pair : m_arrayViews) 
+        for (auto& pair : m_arrayViews)
         {
             const auto& src = *(pair.first);
             auto dst = pair.second;
@@ -394,7 +394,7 @@ namespace CNTK
         }
     }
 
-    void Serializer::WriteNDArrayViewData(io::CodedOutputStream& output) 
+    void Serializer::WriteNDArrayViewData(io::CodedOutputStream& output)
     {
         for (auto& pair : m_arrayViews)
         {
@@ -462,7 +462,7 @@ namespace CNTK
 
     proto::NDShape* Serializer::CreateProto(const NDShape& src, Arena* arena)
     {
-        proto::NDShape* dst = (arena != nullptr) ? 
+        proto::NDShape* dst = (arena != nullptr) ?
             Arena::CreateMessage<proto::NDShape>(arena) : new proto::NDShape();
         auto size = src.Rank();
         dst->mutable_shape_dim()->Reserve((int)size);
@@ -486,7 +486,7 @@ namespace CNTK
 
     proto::Axis* Serializer::CreateProto(const Axis& src, Arena* arena)
     {
-        proto::Axis* dst = (arena != nullptr) ? 
+        proto::Axis* dst = (arena != nullptr) ?
             Arena::CreateMessage<proto::Axis>(arena) : new proto::Axis();
         dst->set_static_axis_idx(src.StaticAxisIndex(false));
         dst->set_name(Microsoft::MSR::CNTK::ToLegacyString(Microsoft::MSR::CNTK::ToUTF8(src.Name())));
@@ -508,17 +508,17 @@ namespace CNTK
 
     proto::NDArrayView* Serializer::CreateProto(const NDArrayView& src, Arena* arena)
     {
-        proto::NDArrayView* dst = (arena != nullptr) ? 
+        proto::NDArrayView* dst = (arena != nullptr) ?
             Arena::CreateMessage<proto::NDArrayView>(arena) : new proto::NDArrayView();
         dst->set_data_type(ToProtoType(src.GetDataType()));
         dst->set_allocated_shape(CreateProto(src.Shape(), arena));
         dst->set_storage_format(ToProtoType(src.GetStorageFormat()));
 
         m_arrayViews.push_back({const_cast<NDArrayView*>(&src), dst });
-        
+
         auto numElements = src.Shape().TotalSize();
         auto dataSize = DataTypeSize(src.GetDataType());
-        if (numElements > SIZE_MAX / dataSize) 
+        if (numElements > SIZE_MAX / dataSize)
             RuntimeError("Bytes size of NDArrayView exceeds %zu.", SIZE_MAX);
         m_byteSize += numElements * dataSize;
 
@@ -542,7 +542,7 @@ namespace CNTK
         {
             if (src.float_values().value().size() == shape->TotalSize())
                 CopyData<float>(src.float_values().value(), dst);
-            else 
+            else
                 m_arrayViews.push_back({ dst, nullptr });
         }
         else if (dataType == DataType::Double)
@@ -578,7 +578,7 @@ namespace CNTK
 
     proto::Vector* Serializer::CreateProto(const std::vector<DictionaryValue>& src, Arena* arena)
     {
-        proto::Vector* dst = (arena != nullptr) ? 
+        proto::Vector* dst = (arena != nullptr) ?
             Arena::CreateMessage<proto::Vector>(arena) : new proto::Vector();
         dst->mutable_value()->Reserve((int)src.size());
         for (const auto& value : src)
@@ -600,7 +600,7 @@ namespace CNTK
 
     proto::Dictionary* Serializer::CreateProto(const Dictionary& src, Arena* arena)
     {
-        proto::Dictionary* dst = (arena != nullptr) ? 
+        proto::Dictionary* dst = (arena != nullptr) ?
             Arena::CreateMessage<proto::Dictionary>(arena) : new proto::Dictionary();
         dst->set_version(src.s_version);
         for (const auto& kv : src)
@@ -622,7 +622,7 @@ namespace CNTK
 
     proto::DictionaryValue* Serializer::CreateProto(const DictionaryValue& src, Arena* arena)
     {
-        proto::DictionaryValue* dst = (arena != nullptr) ? 
+        proto::DictionaryValue* dst = (arena != nullptr) ?
             Arena::CreateMessage<proto::DictionaryValue>(arena) : new proto::DictionaryValue();
         dst->set_version(src.s_version);
         Copy(src, *dst, arena);
@@ -738,7 +738,7 @@ namespace CNTK
     void Serializer::Write(io::ZeroCopyOutputStream& stream) {
         io::CodedOutputStream output(&stream);
 
-        // Protobufs have a hard limit on the maximum message size(INT_MAX = 2GBs). 
+        // Protobufs have a hard limit on the maximum message size(INT_MAX = 2GBs).
         // Check if we fit into a single protobuf message.
         if (FitsIntoProtobuf())
         {
@@ -751,7 +751,7 @@ namespace CNTK
             // and store the payload separately, outside of the protobuf.
             // Prefix the metadata protobuf with a magic number and its bytes size.
             output.WriteLittleEndian32(MAGIC_NUMBER);
-            output.WriteLittleEndian32(m_proto->ByteSize());
+            output.WriteLittleEndian32(m_proto->ByteSizeLong());
             m_proto->SerializeToCodedStream(&output);
             WriteNDArrayViewData(output);
         }
@@ -787,29 +787,29 @@ namespace CNTK
         do {
             success = input.Next(&temp, &size);
         } while (success && size == 0);
-    
+
         if (!success)
             return false;
-        
-        if (size >= (sizeof(prefix) + sizeof(limit))) 
+
+        if (size >= (sizeof(prefix) + sizeof(limit)))
         {
             io::CodedInputStream::ReadLittleEndian32FromArray(reinterpret_cast<const uint8*>(temp), &prefix);
         }
 
         // the message is only prefixed with a magic number + message length,
         // if its size exceeds 2GBs.
-        if (prefix == MAGIC_NUMBER) 
+        if (prefix == MAGIC_NUMBER)
         {
             io::CodedInputStream::ReadLittleEndian32FromArray(
                 reinterpret_cast<const uint8*>(temp) + sizeof(prefix), &limit);
 
             input.BackUp(size - sizeof(prefix) - sizeof(limit));
         }
-        else 
+        else
             input.BackUp(size);
 
         io::CodedInputStream codedInput(&input);
-        codedInput.SetTotalBytesLimit(limit, limit);
+        codedInput.SetTotalBytesLimit(limit);
         return msg.ParseFromCodedStream(&codedInput) && codedInput.ConsumedEntireMessage();
     }
 
@@ -898,14 +898,14 @@ namespace CNTK
 
     std::istream& operator>>(std::istream& stream, Dictionary& dictionary)
     {
-        if (!Serializer(dictionary).Read(stream, dictionary)) 
+        if (!Serializer(dictionary).Read(stream, dictionary))
             RuntimeError("Failed to parse Dictionary from the input stream.");
         return stream;
     }
 
     std::istream& operator>>(std::istream& stream, DictionaryValue& value)
     {
-        if (!Serializer(value).Read(stream, value)) 
+        if (!Serializer(value).Read(stream, value))
             RuntimeError("Failed to parse DictionaryValue from the input stream.");
         return stream;
     }
